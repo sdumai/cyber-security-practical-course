@@ -111,31 +111,31 @@ void init_T_rotl() {
 }
 
 // 优化：使用AVX2处理4个消息块并行
-void sm3_compress_avx2(__m256i state[8], const __m256i W[68]) {
-    __m256i A = state[0], B = state[1], ...;
-    for (int j = 0; j < 64; j++) {
-        // 使用_mm256_xxx指令实现并行计算
-        __m256i SS1 = _mm256_rotl_epi32(...);
-        // ... 其他操作
-    }
-    state[0] = _mm256_xor_si256(state[0], A);
-    // ... 更新其他状态
-}
+// void sm3_compress_avx2(__m256i state[8], const __m256i W[68]) {
+//     __m256i A = state[0], B = state[1], ...;
+//     for (int j = 0; j < 64; j++) {
+//         // 使用_mm256_xxx指令实现并行计算
+//         __m256i SS1 = _mm256_rotl_epi32(...);
+//         // ... 其他操作
+//     }
+//     state[0] = _mm256_xor_si256(state[0], A);
+//     // ... 更新其他状态
+// }
 
 // 优化：合并消息扩展与压缩
-void sm3_process_block(uint32_t state[8], const uint8_t block[64]) {
-    uint32_t W[68], W1[64];
-    // 扩展与压缩合并，避免多次访问内存
-    for (int i = 0; i < 16; i++) {
-        W[i] = ...; // 直接计算
-    }
-    for (int i = 16; i < 68; i++) {
-        W[i] = ...; // 计算W
-        if (i >= 4) W1[i - 4] = W[i - 4] ^ W[i]; // 提前计算W1
-    }
-    // 立即调用压缩函数
-    sm3_compress_opt(state, W, W1);
-}
+// void sm3_process_block(uint32_t state[8], const uint8_t block[64]) {
+//     uint32_t W[68], W1[64];
+//     // 扩展与压缩合并，避免多次访问内存
+//     for (int i = 0; i < 16; i++) {
+//         W[i] = ...; // 直接计算
+//     }
+//     for (int i = 16; i < 68; i++) {
+//         W[i] = ...; // 计算W
+//         if (i >= 4) W1[i - 4] = W[i - 4] ^ W[i]; // 提前计算W1
+//     }
+//     // 立即调用压缩函数
+//     sm3_compress_opt(state, W, W1);
+// }
 
 // 消除分支：使用掩码替代条件分支
 #define FF(x, y, z, j) (((j) < 16) ? FF0(x, y, z) : FF1(x, y, z))
@@ -145,7 +145,7 @@ void sm3_process_block(uint32_t state[8], const uint8_t block[64]) {
 // static uint32_t FF_table[2] = {FF0, FF1}; // 伪代码，实际需封装函数指针
 
 // 压缩函数中使用预计算值
-uint32_t SS1 = ROTL((ROTL(A, 12) + E + T_rotl[j]), 7); // 替换原计算
+// uint32_t SS1 = ROTL((ROTL(A, 12) + E + T_rotl[j]), 7); // 替换原计算
 // SM3主函数
 void sm3_hash(const uint8_t *msg, size_t len, uint8_t digest[32]) {
     // 初始向量
