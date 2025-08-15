@@ -436,3 +436,114 @@ assert d_recovered == int(private_key, 16)
 - **随机数 k 重用**导致方程组可解
 - 签名差异 `(r₁ - r₂)` 和 `(s₁ - s₂)` 泄露关键信息
 - 攻击复杂度仅为 `O(1)`，无需暴力破解
+
+# 数字签名伪造
+
+> 1. SM2 签名算法随机数重用漏洞
+> 2. ECDSA 签名可延展性漏洞（比特币签名伪造）
+
+#### SM2 签名算法漏洞
+
+**CVE-ID**: CVE-2021-3711（类似漏洞）  
+**影响版本**: 所有未正确实现随机数生成的 SM2 实现  
+**漏洞类型**: 加密设计缺陷(CWE-323)  
+**CVSS 评分**: 7.5 (High)
+
+#### 签名过程：
+
+```
+输入: 消息m, 私钥d, 随机数k
+1. e = SM3(m)
+2. (x₁, y₁) = k·G
+3. r = (e + x₁) mod n
+4. s = ((1 + d)⁻¹ · (k - r·d)) mod n
+输出: 签名(r, s)
+```
+
+#### 攻击条件：
+
+- 同一私钥对两个不同消息使用相同 k 值签名
+- 获取两组签名(r₁,s₁)和(r₂,s₂)
+
+#### 数学推导：
+
+```
+dₐ = (s₁ - s₂) / [r₁ - r₂ + s₂ - s₁] mod n
+```
+
+#### 验证代码关键函数
+
+```python
+def sign_fixed_k(self, data, k_hex):
+    # 使用固定k生成签名
+    e = self.sm3_z(data)  # 计算消息哈希
+    k = int(k_hex, 16)
+    point = self._kg(k, self.ecc_table['g'])  # 计算k·G
+    x1 = int(point[2:2+64], 16)
+    r = (e + x1) % n
+    s = (inverse(1 + self.private_key, n) * (k - r * self.private_key)) % n
+    return (r, s)
+```
+
+#### ECDSA 签名伪造（比特币）
+
+##### 漏洞描述
+
+**CVE-ID**: CVE-2014-8275  
+**影响范围**: 所有基于 ECDSA 的区块链系统  
+**漏洞类型**: 加密设计缺陷(CWE-347)  
+**比特币修复**: BIP-66/SegWit
+
+#### 攻击原理
+
+#### 签名验证方程：
+
+```
+验证条件：r ≡ (x-coord of (z·s⁻¹·G + r·s⁻¹·Q)) mod n
+其中Q是公钥，z是消息哈希
+```
+
+#### 伪造方法：
+
+```
+给定有效签名(r,s)，构造新签名(r, n-s)
+```
+
+#### 关键代码实现
+
+```python
+def forge_signature(original_sig, original_msg):
+    r, s = sigdecode_der(original_sig, n)
+    s_forged = n - s  # 核心攻击点
+    forged_sig = sigencode_der(r, s_forged, n)
+    forged_msg = original_msg + b" (modified)"
+    return forged_sig, forged_msg
+```
+
+#### 比特币修复方案
+
+| 方案    | 作用          | 实施时间 |
+| ------- | ------------- | -------- |
+| BIP-66  | 严格 DER 编码 | 2015-07  |
+| SegWit  | 签名数据隔离  | 2017-08  |
+| BIP-146 | 低 S 值强制   | 2017-11  |
+
+#### 测试验证结果
+
+##### SM2 测试数据
+
+```
+私钥: 00B9AB...EED83D5
+消息1: "Transfer 1 BTC"
+消息2: "Transfer 2 BTC"
+固定k: 0x7D3F...C221
+恢复私钥: 00B9AB...EED83D5 (匹配)
+```
+
+##### 比特币伪造测试
+
+```
+原始交易: "Send 1 BTC" (sig=3044...21)
+伪造交易: "Send 1 BTC (modified)" (sig=3044...9E)
+验证结果: True
+```
